@@ -263,6 +263,62 @@
     overflow: visible;
   }
   
+
+  /* Главное меню и экраны меню занимают весь viewport, а не внутреннее 4:3-поле.
+     Это убирает «кривой» первый кадр на телефонах и при возврате из игры. */
+  body.menu-mode {
+    padding: 0;
+    justify-content: flex-start;
+  }
+  body.menu-mode > header,
+  body.menu-mode > #statusBar,
+  body.menu-mode > #mobileControls {
+    visibility: hidden;
+    pointer-events: none;
+    display: none;
+  }
+  body.menu-mode #gameWrapper {
+    position: static;
+    width: 0;
+    height: 0;
+    min-height: 0;
+    max-width: none;
+    flex: 0 0 0;
+    overflow: visible;
+  }
+  body.menu-mode #gameContainer {
+    position: static;
+    width: 0;
+    height: 0;
+    min-height: 0;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+    background: transparent;
+  }
+  body.menu-mode #overlay {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    min-height: 100%;
+    border: 0;
+    border-radius: 0;
+    z-index: 9999;
+    padding: max(18px, env(safe-area-inset-top, 18px)) 16px max(18px, env(safe-area-inset-bottom, 18px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  body.menu-mode #overlay .menu-hero {
+    width: min(440px, 100%);
+    margin: auto;
+  }
+  body.menu-mode #overlay .menu-tools {
+    width: min(390px, 100%);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   /* Главное меню v2 */
   .menu-hero {
     margin: 2px auto 12px;
@@ -338,6 +394,7 @@
     gap: 3px;
     pointer-events: none;
   }
+  /* Верхняя панель способностей — спокойная, без свечения. Яркие версии остаются только на поле. */
   .power-icon {
     width: 27px;
     height: 27px;
@@ -347,18 +404,23 @@
     justify-content: center;
     font-size: 15px;
     background: rgba(18,18,28,.92);
-    border: 1.5px solid rgba(255,255,255,.38);
-    opacity: .92;
-    filter: saturate(1.35) brightness(1.15);
-    box-shadow: 0 0 7px rgba(255,255,255,.18);
-    text-shadow: 0 0 7px rgba(255,255,255,.9);
+    border: 1.5px solid rgba(255,255,255,.24);
+    opacity: .78;
+    filter: none;
+    box-shadow: none;
+    text-shadow: none;
   }
-  .power-icon.active { opacity: 1; transform: scale(1.05); border-color: #ddd; box-shadow: 0 0 7px rgba(255,255,255,.35); filter: saturate(1.15) brightness(1.05); }
-  #p-freeze { border-color:#81d4fa; box-shadow:0 0 8px rgba(129,212,250,.55); }
-  #p-speed { border-color:#fff176; box-shadow:0 0 8px rgba(255,241,118,.55); }
-  #p-shield { border-color:#69f0ae; box-shadow:0 0 8px rgba(105,240,174,.55); }
-  #p-bomb { border-color:#ff8a65; box-shadow:0 0 8px rgba(255,138,101,.55); }
-  #p-magnet { border-color:#ce93d8; box-shadow:0 0 8px rgba(206,147,216,.55); }
+  .power-icon.active {
+    opacity: 1;
+    transform: scale(1.03);
+    border-color: rgba(255,255,255,.48);
+    box-shadow: none;
+    filter: none;
+  }
+  #p-freeze, #p-speed, #p-shield, #p-bomb, #p-magnet {
+    border-color: rgba(255,255,255,.24);
+    box-shadow: none;
+  }
   
   .mode-indicator {
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -708,7 +770,7 @@
 
 </style>
 </head>
-<body>
+<body class="menu-mode">
   <header>
     <h1>🐹 ХОМЯЧОК 🐹</h1>
     <div class="hud">
@@ -742,24 +804,7 @@
       <canvas id="c" width="800" height="600"></canvas>
       <div id="achPopup"></div>
 
-      <div id="overlay">
-        <h2>🐹 ХОМЯЧОК</h2>
-        <p>Выбери режим игры:</p>
-        <div class="mode-btns" id="modeSelect">
-          <button class="btn" data-mode="classic">🎮 КЛАССИКА</button>
-          <button class="btn secondary" data-mode="chaos">🌀 ХАОС</button>
-        </div>
-        <div style="margin:8px 0">
-          <button class="btn secondary" id="skinsBtn">🎨 СКИНЫ</button>
-          <button class="btn secondary" id="treeBtn">🌳 АПГРЕЙДЫ</button>
-          <button class="btn secondary" id="statsBtn">📊 СТАТЫ</button>
-          <button class="btn secondary" id="achBtn">🏅 АЧИВКИ</button>
-          <button class="btn secondary" id="settingsBtn">⚙️ НАСТРОЙКИ</button>
-          <button class="btn secondary" id="faqBtn">❓ FAQ</button>
-        </div>
-        <p style="font-size:13px;color:#999;line-height:1.5">🕹️ Кнопки · свайпы · стрелки</p>
-        <button class="btn secondary" id="fsBtn" style="margin-top:6px">🖥️ ПОЛНЫЙ ЭКРАН</button>
-      </div>
+      <div id="overlay"></div>
     </div>
   </div>
 
@@ -1079,18 +1124,28 @@ function setMenuMode(on){
   document.body.classList.toggle('menu-mode', !!on);
 }
 function startGame(selectedMode){
-  requestGameFullscreen();
-  mode = selectedMode||'classic';
+  mode = selectedMode || 'classic';
   initAudio(); startMusic();
   lives = maxLives();
-  level=1;
+  level = 1;
   // монеты не сбрасываем — это валюта
   resetLevel();
-  gameState='play';
+  gameState = 'play';
   setMenuMode(false);
-  document.getElementById('overlay').classList.add('hidden');
-  document.getElementById('timerWrap').classList.toggle('hidden', mode!=='speed');
-  lastMove=performance.now();
+  const overlay = document.getElementById('overlay');
+  if(overlay) overlay.classList.add('hidden');
+  const timer = document.getElementById('timerWrap');
+  if(timer) timer.classList.toggle('hidden', mode!=='speed');
+  lastMove = performance.now();
+  updateUI();
+  updatePowerUI();
+  draw();
+  // Fullscreen вызываем непосредственно из обработчика нажатия режима,
+  // иначе мобильный браузер может потерять user gesture и отказать в fullscreen.
+  requestGameFullscreen();
+  applyExpandField();
+  applyControlLayout();
+  draw();
   requestAnimationFrame(loop);
 }
 
@@ -1326,8 +1381,8 @@ function showMainMenu(){
         <h2>🐹 ХОМЯЧОК</h2>
         <p class="menu-sub">Захватывай поле, собирай морковку и выживай</p>
         <div class="mode-btns" id="modeSelect">
-          <button class="btn" data-mode="classic">🎮 КЛАССИКА</button>
-          <button class="btn secondary" data-mode="chaos">🌀 ХАОС</button>
+          <button class="btn" id="classicBtn" data-mode="classic">🎮 КЛАССИКА</button>
+          <button class="btn secondary" id="chaosBtn" data-mode="chaos">🌀 ХАОС</button>
         </div>
         <div class="menu-divider"></div>
         <div class="menu-tools">
@@ -1342,10 +1397,10 @@ function showMainMenu(){
         <p style="font-size:12px;color:#777;margin:11px 0 0">🕹️ Кнопки · свайпы · стрелки</p>
       </div>
     `;
-  let selected='classic';
-  const setSelected=(m)=>{ selected=m; document.getElementById('classicBtn').classList.toggle('secondary',m!=='classic'); document.getElementById('chaosBtn').classList.toggle('secondary',m!=='chaos'); };
-  document.getElementById('classicBtn').onclick=()=>startGame('classic');
-  document.getElementById('chaosBtn').onclick=()=>startGame('chaos');
+  const classicBtn = document.getElementById('classicBtn');
+  const chaosBtn = document.getElementById('chaosBtn');
+  if(classicBtn) classicBtn.onclick = ()=>startGame('classic');
+  if(chaosBtn) chaosBtn.onclick = ()=>startGame('chaos');
   const fs=document.getElementById('fsBtn'); if(fs) fs.onclick=toggleFullScreen;
   const sk=document.getElementById('skinsBtn'); if(sk) sk.onclick=showSkins;
   const st=document.getElementById('statsBtn'); if(st) st.onclick=showStats;
@@ -1382,7 +1437,10 @@ function requestGameFullscreen(){
 }
 
 function bindMenuButtons(){
-  document.querySelectorAll('#modeSelect .btn').forEach(b=>b.onclick=()=>startGame(b.dataset.mode));
+  const classicBtn=document.getElementById('classicBtn');
+  const chaosBtn=document.getElementById('chaosBtn');
+  if(classicBtn) classicBtn.onclick=()=>startGame('classic');
+  if(chaosBtn) chaosBtn.onclick=()=>startGame('chaos');
   const fs=document.getElementById('fsBtn');
   if(fs) fs.onclick=toggleFullScreen;
   const sk=document.getElementById('skinsBtn'); if(sk) sk.onclick=showSkins;
@@ -2160,10 +2218,8 @@ function draw(){
     const glow={freeze:'#4fc3f7',speed:'#fff176',shield:'#69f0ae',bomb:'#ff7043',magnet:'#ce93d8'}[p.type]||'#fff';
     ctx.globalAlpha=1;
     ctx.shadowColor=glow;
-    ctx.shadowBlur=22;
+    ctx.shadowBlur=14;
     ctx.font=`${20*pulse}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(icon,px,py+bob);
-    ctx.shadowBlur=34;
     ctx.fillText(icon,px,py+bob);
     ctx.shadowBlur=0;
     ctx.globalAlpha=1;
@@ -2188,10 +2244,10 @@ function draw(){
     const bob=Math.sin(tnow/150+f.x)*2;
     const pulse=1+Math.sin(tnow/110+f.x)*0.08;
     ctx.globalAlpha=1;
-    ctx.shadowColor='#fff'; ctx.shadowBlur=6;
+    ctx.shadowColor='#fff'; ctx.shadowBlur=4;
     ctx.font=`${18*pulse}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(f.type,fx,fy+bob);
-    ctx.shadowColor='#8cff66'; ctx.shadowBlur=16;
+    ctx.shadowColor='#8cff66'; ctx.shadowBlur=9;
     ctx.fillText(f.type,fx,fy+bob);
     ctx.shadowBlur=0; ctx.globalAlpha=1;
   }
@@ -2623,18 +2679,31 @@ document.getElementById('pauseBtn').onclick = () => {
 };
 
 // Инициализация
-bindMenuButtons();
+// Главное меню всегда строится одной функцией — никаких двух разных версий меню.
+window.addEventListener('resize', ()=>{
+  applyExpandField();
+  applyControlLayout();
+  if(gameState==='play') draw();
+});
+document.addEventListener('fullscreenchange', ()=>{
+  requestAnimationFrame(()=>{
+    applyExpandField();
+    applyControlLayout();
+    if(gameState==='play') draw();
+  });
+});
 applyControlLayout();
 applyExpandField();
 applyHideControls();
-setMenuMode(true);
 /* highscore removed */
-initField(); draw();
+initField();
+showMainMenu();
+draw();
 
 // PWA: service worker (офлайн-кэш этой страницы)
 if('serviceWorker' in navigator){
   const swCode = `
-    const CACHE = 'hamster-v3';
+    const CACHE = 'hamster-v4';
     self.addEventListener('install', e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html']).catch(()=>{}));
       self.skipWaiting();
